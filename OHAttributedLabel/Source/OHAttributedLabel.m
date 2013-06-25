@@ -863,6 +863,7 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
 {
 	MRC_RELEASE(_attributedText);
 	_attributedText = [newText copy];
+	[super setText:newText.string];
 	[self setAccessibilityLabel:_attributedText.string];
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
