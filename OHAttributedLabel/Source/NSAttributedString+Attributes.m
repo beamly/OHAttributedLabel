@@ -70,10 +70,10 @@ NSString* kOHLinkAttributeName = @"NSLinkAttributeName"; // Use the same value a
 
 -(CGSize)sizeConstrainedToSize:(CGSize)maxSize
 {
-	return [self sizeConstrainedToSize:maxSize fitRange:NULL];
+	return [self sizeConstrainedToSize:maxSize maxLines:0 fitRange:NULL];
 }
 
--(CGSize)sizeConstrainedToSize:(CGSize)maxSize fitRange:(NSRange*)fitRange
+-(CGSize)sizeConstrainedToSize:(CGSize)maxSize maxLines:(NSInteger)maxLines fitRange:(NSRange *)fitRange
 {
 	CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString((BRIDGE_CAST CFAttributedStringRef)self);
     CGSize sz = CGSizeMake(0.f, 0.f);
@@ -82,12 +82,34 @@ NSString* kOHLinkAttributeName = @"NSLinkAttributeName"; // Use the same value a
         CFRange fitCFRange = CFRangeMake(0,0);
         sz = CTFramesetterSuggestFrameSizeWithConstraints(framesetter,CFRangeMake(0,0),NULL,maxSize,&fitCFRange);
         sz = CGSizeMake( floorf(sz.width+1) , floorf(sz.height+1) ); // take 1pt of margin for security
-        CFRelease(framesetter);
+        
+        if (maxLines > 0) {
+            CGRect frameRect = (CGRect){.origin=CGPointZero, .size=maxSize};
+            frameRect.size.height = MIN(frameRect.size.height, 100000.0f);
+            
+            CGPathRef path = CGPathCreateWithRect(frameRect, NULL);
+            CTFrameRef frame = CTFramesetterCreateFrame(framesetter, fitCFRange, path, NULL);
+            
+            CFArrayRef lines = CTFrameGetLines(frame);
+            CFIndex numberOfLines = CFArrayGetCount(lines);
+            
+            if (numberOfLines > (CFIndex)maxLines) {
+                CGPoint lineOrigins[numberOfLines];
+                CTFrameGetLineOrigins(frame, CFRangeMake(0, numberOfLines), lineOrigins);
+                CGPoint lineOrigin = lineOrigins[maxLines];
+                sz.height = frameRect.size.height - lineOrigin.y;
+            }
+            
+            CGPathRelease(path);
+            CFRelease(frame);
+        }
 
         if (fitRange)
         {
             *fitRange = NSMakeRange((NSUInteger)fitCFRange.location, (NSUInteger)fitCFRange.length);
         }
+        
+        CFRelease(framesetter);
     }
     return sz;
 }

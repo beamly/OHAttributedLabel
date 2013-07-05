@@ -43,7 +43,7 @@ extern NSString* kOHLinkAttributeName;
 -(CGSize)sizeConstrainedToSize:(CGSize)maxSize;
 //! if fitRange is not NULL, on return it will contain the used range that actually fits the constrained size.
 //! Note: Use CGFLOAT_MAX for the CGSize's height if you don't want a constraint for the height.
--(CGSize)sizeConstrainedToSize:(CGSize)maxSize fitRange:(NSRange*)fitRange;
+-(CGSize)sizeConstrainedToSize:(CGSize)maxSize maxLines:(NSInteger)maxLines fitRange:(NSRange*)fitRange;
 
 -(CTFontRef)fontAtIndex:(NSUInteger)index effectiveRange:(NSRangePointer)aRange;
 -(UIColor*)textColorAtIndex:(NSUInteger)index effectiveRange:(NSRangePointer)aRange;
