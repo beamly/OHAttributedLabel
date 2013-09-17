@@ -76,6 +76,13 @@ NSString* kOHLinkAttributeName = @"NSLinkAttributeName"; // Use the same value a
 -(CGSize)sizeConstrainedToSize:(CGSize)maxSize maxLines:(NSInteger)maxLines fitRange:(NSRange *)fitRange
 {
 	CTFramesetterRef framesetter = CTFramesetterCreateWithAttributedString((BRIDGE_CAST CFAttributedStringRef)self);
+    CGSize size = [self sizeConstrainedToSize:maxSize maxLines:maxLines fitRange:fitRange framesetter:framesetter];
+    CFRelease(framesetter);
+    return size;
+}
+
+-(CGSize)sizeConstrainedToSize:(CGSize)maxSize maxLines:(NSInteger)maxLines fitRange:(NSRange *)fitRange framesetter:(CTFramesetterRef)framesetter
+{
     CGSize sz = CGSizeMake(0.f, 0.f);
     if (framesetter)
     {
@@ -108,8 +115,6 @@ NSString* kOHLinkAttributeName = @"NSLinkAttributeName"; // Use the same value a
         {
             *fitRange = NSMakeRange((NSUInteger)fitCFRange.location, (NSUInteger)fitCFRange.length);
         }
-        
-        CFRelease(framesetter);
     }
     return sz;
 }

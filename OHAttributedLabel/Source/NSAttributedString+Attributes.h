@@ -44,6 +44,8 @@ extern NSString* kOHLinkAttributeName;
 //! if fitRange is not NULL, on return it will contain the used range that actually fits the constrained size.
 //! Note: Use CGFLOAT_MAX for the CGSize's height if you don't want a constraint for the height.
 -(CGSize)sizeConstrainedToSize:(CGSize)maxSize maxLines:(NSInteger)maxLines fitRange:(NSRange*)fitRange;
+//! If you want to pass in a cached framesetter, then you can here
+-(CGSize)sizeConstrainedToSize:(CGSize)maxSize maxLines:(NSInteger)maxLines fitRange:(NSRange *)fitRange framesetter:(CTFramesetterRef)framesetter;
 
 -(CTFontRef)fontAtIndex:(NSUInteger)index effectiveRange:(NSRangePointer)aRange;
 -(UIColor*)textColorAtIndex:(NSUInteger)index effectiveRange:(NSRangePointer)aRange;
