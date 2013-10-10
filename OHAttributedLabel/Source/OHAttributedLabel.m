@@ -627,11 +627,11 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
                     if (!(lastLineRange.length == 0 && lastLineRange.location == 0) && lastLineRange.location + lastLineRange.length < (long)_attributedText.length) {
                         CTLineTruncationType truncationType;
                         NSUInteger truncationAttributePosition = (NSUInteger)lastLineRange.location;
-                        UILineBreakMode lineBreakMode = self.lineBreakMode;
+                        NSUILineBreakMode lineBreakMode = self.lineBreakMode;
                         
                         // Multiple lines, only use UILineBreakModeTailTruncation. It's hard to do head and middle, so just do tail for now.
                         if (numberOfLines != 1) {
-                            lineBreakMode = UILineBreakModeTailTruncation;
+                            lineBreakMode = (NSUILineBreakMode)UILineBreakModeTailTruncation;
                         }
                         
                         switch (lineBreakMode) {
