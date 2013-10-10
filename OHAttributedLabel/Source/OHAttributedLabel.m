@@ -137,19 +137,7 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
     _highlightedLinkColor = MRC_RETAIN([UIColor colorWithWhite:0.4f alpha:0.3f]);
 	_linkUnderlineStyle = kCTUnderlineStyleSingle | kCTUnderlinePatternSolid;
     
-	NSTextCheckingTypes linksType = (NSTextCheckingTypes)(NSTextCheckingTypeLink);
-	
-	static dispatch_once_t onceToken;
-	static BOOL canOpenPhoneLinks;
-	dispatch_once(&onceToken, ^{
-		canOpenPhoneLinks = [[UIApplication sharedApplication] canOpenURL:[NSURL URLWithString:@"tel:0"]];
-	});
-	if (canOpenPhoneLinks)
-    {
-		linksType |= NSTextCheckingTypePhoneNumber;
-	}
-    self.automaticallyAddLinksForType = linksType;
-    
+    self.automaticallyAddLinksForType = 0;
 	self.onlyCatchTouchesOnLinks = YES;
 	self.userInteractionEnabled = YES;
 	self.contentMode = UIViewContentModeRedraw;
@@ -795,11 +783,15 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
 
 - (CGSize)sizeThatFits:(CGSize)size
 {
-    [self recomputeLinksInTextIfNeeded];
-    if (_attributedTextWithLinks) {
-        return [_attributedTextWithLinks sizeConstrainedToSize:size maxLines:self.numberOfLines fitRange:NULL];
-    } else {
+    if (size.width == 0.0f) {
         return CGSizeZero;
+    } else {
+        [self recomputeLinksInTextIfNeeded];
+        if (_attributedTextWithLinks) {
+            return [_attributedTextWithLinks sizeConstrainedToSize:size maxLines:self.numberOfLines fitRange:NULL];
+        } else {
+            return CGSizeZero;
+        }
     }
 }
 
