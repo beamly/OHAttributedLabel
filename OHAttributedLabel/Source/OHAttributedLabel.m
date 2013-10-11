@@ -611,7 +611,105 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
                 [self drawActiveLinkHighlightForRect:drawingRect];
             }
             
-            CTFrameDraw(textFrame, ctx);
+            // XXX: Start of code snipped from TTTAttributedLabel
+            CFArrayRef lines = CTFrameGetLines(textFrame);
+            NSInteger numberOfLines = self.numberOfLines > 0 ? MIN(self.numberOfLines, CFArrayGetCount(lines)) : CFArrayGetCount(lines);
+            BOOL truncateLastLine = (self.lineBreakMode == UILineBreakModeHeadTruncation || self.lineBreakMode == UILineBreakModeMiddleTruncation || self.lineBreakMode == UILineBreakModeTailTruncation);
+            
+            CGPoint lineOrigins[numberOfLines];
+            CTFrameGetLineOrigins(textFrame, CFRangeMake(0, numberOfLines), lineOrigins);
+            
+            for (CFIndex lineIndex = 0; lineIndex < numberOfLines; lineIndex++) {
+                CGPoint lineOrigin = lineOrigins[lineIndex];
+                CGContextSetTextPosition(ctx, lineOrigin.x, lineOrigin.y);
+                CTLineRef line = CFArrayGetValueAtIndex(lines, lineIndex);
+                
+                if (lineIndex == numberOfLines - 1 && truncateLastLine) {
+                    CFRange lastLineRange = CTLineGetStringRange(line);
+                    
+                    if (!(lastLineRange.length == 0 && lastLineRange.location == 0) && lastLineRange.location + lastLineRange.length < (long)_attributedText.length) {
+                        CTLineTruncationType truncationType;
+                        NSUInteger truncationAttributePosition = (NSUInteger)lastLineRange.location;
+                        UILineBreakMode lineBreakMode = self.lineBreakMode;
+                        
+                        // Multiple lines, only use UILineBreakModeTailTruncation. It's hard to do head and middle, so just do tail for now.
+                        if (numberOfLines != 1) {
+                            lineBreakMode = UILineBreakModeTailTruncation;
+                        }
+                        
+                        switch (lineBreakMode) {
+                            case UILineBreakModeHeadTruncation:
+                                truncationType = kCTLineTruncationStart;
+                                break;
+                            case UILineBreakModeMiddleTruncation:
+                                truncationType = kCTLineTruncationMiddle;
+                                truncationAttributePosition += (NSUInteger)(lastLineRange.length / 2);
+                                break;
+                            case UILineBreakModeTailTruncation:
+                            default:
+                                truncationType = kCTLineTruncationEnd;
+                                truncationAttributePosition += (NSUInteger)(lastLineRange.length - 1);
+                                break;
+                        }
+                        
+                        NSDictionary *tokenAttributes = [_attributedText attributesAtIndex:truncationAttributePosition effectiveRange:NULL];
+                        NSString *truncationTokenString = @"\u2026";
+                        NSAttributedString *attributedTokenString = [[NSAttributedString alloc] initWithString:truncationTokenString attributes:tokenAttributes];
+                        CTLineRef truncationToken = CTLineCreateWithAttributedString((CFAttributedStringRef)attributedTokenString);
+                        
+                        // Append truncationToken to the string
+                        // because if string isn't too long, CT wont add the truncationToken on it's own
+                        // There is no change of a double truncationToken because CT only add the token if it removes characters (and the one we add will go first)
+                        NSMutableAttributedString *truncationString = [[_attributedText attributedSubstringFromRange:NSMakeRange((NSUInteger)lastLineRange.location, (NSUInteger)lastLineRange.length)] mutableCopy];
+                        if (lastLineRange.length > 0) {
+                            // Remove any newline at the end (we don't want newline space between the text and the truncation token). There can only be one, because the second would be on the next line.
+                            unichar lastCharacter = [[truncationString string] characterAtIndex:(NSUInteger)lastLineRange.length - 1];
+                            if ([[NSCharacterSet newlineCharacterSet] characterIsMember:lastCharacter]) {
+                                [truncationString deleteCharactersInRange:NSMakeRange((NSUInteger)lastLineRange.length - 1, 1)];
+                            }
+                        }
+                        [truncationString appendAttributedString:attributedTokenString];
+                        CTLineRef truncationLine = CTLineCreateWithAttributedString((CFAttributedStringRef)truncationString);
+                        
+                        // Truncate the line in case it is too long.
+                        CTLineRef truncatedLine = CTLineCreateTruncatedLine(truncationLine, aRect.size.width, truncationType, truncationToken);
+                        if (!truncatedLine) {
+                            // If the line is not as wide as the truncationToken, truncatedLine is NULL
+                            truncatedLine = CFRetain(truncationToken);
+                        }
+                        
+                        // Adjust pen offset for flush depending on text alignment
+                        CGFloat flushFactor = 0.0f;
+                        switch (self.textAlignment) {
+                            case UITextAlignmentCenter:
+                                flushFactor = 0.5f;
+                                break;
+                            case UITextAlignmentRight:
+                                flushFactor = 1.0f;
+                                break;
+                            case UITextAlignmentLeft:
+                            default:
+                                break;
+                        }
+                        
+                        CGFloat penOffset = (CGFloat)CTLineGetPenOffsetForFlush(truncatedLine, flushFactor, aRect.size.width);
+                        CGContextSetTextPosition(ctx, penOffset, lineOrigin.y);
+                        
+                        CTLineDraw(truncatedLine, ctx);
+                        
+                        CFRelease(truncatedLine);
+                        CFRelease(truncationLine);
+                        CFRelease(truncationToken);
+                        [attributedTokenString release];
+                        [truncationString release];
+                    } else {
+                        CTLineDraw(line, ctx);
+                    }
+                } else {
+                    CTLineDraw(line, ctx);
+                }
+            }
+            // XXX: End of code snipped from TTTAttributedLabel
             
             CGContextRestoreGState(ctx);
         } // @autoreleasepool
@@ -840,6 +938,15 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
 #endif	
 }
 
+-(void)setNumberOfLines:(NSInteger)numberOfLines
+{
+    [super setNumberOfLines:numberOfLines];
+    
+#if OHATTRIBUTEDLABEL_WARN_ABOUT_KNOWN_ISSUES
+    [self warnAboutKnownIssues_CheckLineBreakMode_FromXIB:NO];
+#endif
+}
+
 -(void)setCenterVertically:(BOOL)val
 {
 	_centerVertically = val;
@@ -902,18 +1009,16 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
 -(void)warnAboutKnownIssues_CheckLineBreakMode_FromXIB:(BOOL)fromXIB
 {
 #if __IPHONE_OS_VERSION_MAX_ALLOWED < 60000
-	BOOL truncationMode = (self.lineBreakMode == UILineBreakModeHeadTruncation)
-	|| (self.lineBreakMode == UILineBreakModeMiddleTruncation)
-	|| (self.lineBreakMode == UILineBreakModeTailTruncation);
+	BOOL truncationMode = self.numberOfLines != 1 && ((self.lineBreakMode == UILineBreakModeHeadTruncation)
+	|| (self.lineBreakMode == UILineBreakModeMiddleTruncation));
 #else
-	BOOL truncationMode = (self.lineBreakMode == NSLineBreakByTruncatingHead)
-	|| (self.lineBreakMode == NSLineBreakByTruncatingMiddle)
-	|| (self.lineBreakMode == NSLineBreakByTruncatingTail);
+	BOOL truncationMode = self.numberOfLines != 1 && ((self.lineBreakMode == NSLineBreakByTruncatingHead)
+	|| (self.lineBreakMode == NSLineBreakByTruncatingMiddle));
 #endif
 	if (truncationMode)
     {
-		NSLog(@"[OHAttributedLabel] Warning: \"UILineBreakMode...Truncation\" lineBreakModes are not yet fully supported"
-              "by CoreText and OHAttributedLabel. See https://github.com/AliSoftware/OHAttributedLabel/issues/3");
+		NSLog(@"[OHAttributedLabel] Warning: \"UILineBreakMode(Middle|Head)Truncation\" lineBreakModes are not yet supported when numberOfLines != 1"
+              "See https://github.com/AliSoftware/OHAttributedLabel/issues/3");
         if (fromXIB)
         {
             NSLog(@"  (To avoid this warning, change this property in your XIB file to another lineBreakMode value)");
@@ -939,18 +1044,6 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
 {
 	[super setAdjustsFontSizeToFitWidth:value];
 	[self warnAboutKnownIssues_CheckAdjustsFontSizeToFitWidth_FromXIB:NO];
-}
-
--(void)setNumberOfLines:(NSInteger)nbLines
-{
-    if (nbLines > 0)
-    {
-        NSLog(@"[OHAttributedLabel] Warning: the \"numberOfLines\" property is not yet supported by CoreText. "
-              "It will be ignored by OHAttributedLabel. See https://github.com/AliSoftware/OHAttributedLabel/issues/34");
-        NSLog(@"  (To avoid this warning, set the numberOfLines property to 0)");
-    }
-
-	[super setNumberOfLines:nbLines];
 }
 #endif
 
