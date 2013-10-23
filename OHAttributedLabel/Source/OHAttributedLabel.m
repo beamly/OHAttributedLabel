@@ -163,7 +163,9 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
 
 -(void)dealloc
 {
-    CFRelease(_measuringFramesetter); _measuringFramesetter = nil;
+    if (_measuringFramesetter) {
+        CFRelease(_measuringFramesetter); _measuringFramesetter = nil;
+    }
 	[self resetTextFrame]; // CFRelease the text frame
 }
 
