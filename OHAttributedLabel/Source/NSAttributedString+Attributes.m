@@ -267,6 +267,9 @@ NSString* kOHLinkAttributeName = @"NSLinkAttributeName"; // Use the same value a
         if (!currentFont)
         {
             currentFont = CTFontCreateUIFontForLanguage(kCTFontLabelFontType, 0.0, NULL);
+        } else
+        {
+            CFRetain(currentFont);
         }
 		// The range for which this font is effective
 		NSRange fontRange = NSIntersectionRange(range, effectiveRange);
@@ -306,6 +309,10 @@ NSString* kOHLinkAttributeName = @"NSLinkAttributeName"; // Use the same value a
 			[self addAttribute:(__bridge NSString*)kCTFontAttributeName value:(__bridge id)newFont range:fontRange];
 			CFRelease(newFont);
 		}
+        
+        if (currentFont) {
+            CFRelease(currentFont);
+        }
 		
 		// If the fontRange was not covering the whole range, continue with next run
 		startPoint = NSMaxRange(effectiveRange);
