@@ -578,6 +578,8 @@ NSDataDetector* sharedReusableDataDetector(NSTextCheckingTypes types)
                 [self drawActiveLinkHighlightForRect:drawingRect];
             }
             
+            CGContextConcatCTM(ctx, CGAffineTransformMakeTranslation(drawingRect.origin.x, drawingRect.origin.y));
+            
             // XXX: Start of code snipped from TTTAttributedLabel
             CFArrayRef lines = CTFrameGetLines(textFrame);
             NSInteger numberOfLines = self.numberOfLines > 0 ? MIN(self.numberOfLines, CFArrayGetCount(lines)) : CFArrayGetCount(lines);
